@@ -266,7 +266,7 @@ export class Entry {
 
 ## API Layer Contracts
 
-The formal OpenAPI 3.1.0 specification for all backend endpoints is maintained in [openapi.yaml](file:///c:/Users/alarc/Developer/NFC-Tag/openapi.yaml).
+The formal OpenAPI 3.1.0 specification for all backend endpoints is maintained in [openapi.yaml](file:///c:/Users/alarc/Developer/NFC-Tag/docs/openapi.yaml).
 
 ### Summary of Defined Endpoints
 

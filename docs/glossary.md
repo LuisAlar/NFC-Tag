@@ -1,8 +1,8 @@
 # Glossary -- NFC Art Journal
 
 > Shared vocabulary for the project. Referenced by
-> [requirements.md](file:///c:/Users/alarc/Developer/NFC-Tag/requirements.md) and
-> [specifications.md](file:///c:/Users/alarc/Developer/NFC-Tag/specifications.md).
+> [requirements.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/requirements.md) and
+> [specifications.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/specifications.md).
 
 ---
 

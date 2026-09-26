@@ -2,7 +2,7 @@
 
 > Living document. Questions are logged as they surface and marked resolved when
 > decisions are made. These drive the refinement of
-> [specifications.md](file:///c:/Users/alarc/Developer/NFC-Tag/specifications.md).
+> [specifications.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/specifications.md).
 
 ---
 
@@ -15,7 +15,7 @@
 
 **Answer**: Phase 1 only. These documents are for building the first prototype
 for personal use. Phases 2 and 3 are captured as future vision in
-[requirements.md](file:///c:/Users/alarc/Developer/NFC-Tag/requirements.md) to
+[requirements.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/requirements.md) to
 inform architecture, but are not in scope for development. The documents will
 evolve as the idea grows.
 

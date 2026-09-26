@@ -27,7 +27,7 @@ Hosting a lightweight Node.js/TypeScript backend alongside a mobile-first web fr
 
 1. **AWS App Runner**:
    - **How it works**: Fully managed container and source-to-service platform designed specifically for web applications and APIs.
-   - **Pros**: Direct integration with GitHub; automatic build and deployment; built-in load balancing, TLS, and autoscaling; automatic health checks matching endpoints in [openapi.yaml](file:///c:/Users/alarc/Developer/NFC-Tag/openapi.yaml).
+   - **Pros**: Direct integration with GitHub; automatic build and deployment; built-in load balancing, TLS, and autoscaling; automatic health checks matching endpoints in [openapi.yaml](file:///c:/Users/alarc/Developer/NFC-Tag/docs/openapi.yaml).
    - **Cons**: Memory and vCPU costs pause when idle only if configured to scale down; minimum baseline cost is around $5 to $7/month when warm.
 
 2. **AWS Lambda with API Gateway**:
@@ -116,11 +116,11 @@ nfc-art-journal/
 1. Initializing the workspace with Node.js and TypeScript.
 2. Creating `apps/api` with Fastify or Express.
 3. Creating `apps/web` with Next.js or React + Vite.
-4. Adding shared TypeScript types generated or referenced from [data-model.md](file:///c:/Users/alarc/Developer/NFC-Tag/data-model.md).
+4. Adding shared TypeScript types generated or referenced from [data-model.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/data-model.md).
 
 ### Step 2: Provisioning the Database
 1. Launching a PostgreSQL instance (local PostgreSQL or managed via Neon/Supabase).
-2. Running the DDL script from [data-model.md](file:///c:/Users/alarc/Developer/NFC-Tag/data-model.md) to create tables (`tenants`, `tags`, `items`, `entries`).
+2. Running the DDL script from [data-model.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/data-model.md) to create tables (`tenants`, `tags`, `items`, `entries`).
 3. Seeding an initial tenant (`tenant_01`) and sample test tags (`test_unclaimed`, `test_claimed`).
 
 ### Step 3: Deploying the Backend Stub

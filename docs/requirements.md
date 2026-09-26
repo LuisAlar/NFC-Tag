@@ -1,6 +1,6 @@
 # Requirements -- NFC Art Journal
 
-> Source: [Journal.md](file:///c:/Users/alarc/Developer/NFC-Tag/Journal.md) (September 13, 2026)
+> Source: [Journal.md](file:///c:/Users/alarc/Developer/NFC-Tag/docs/Journal.md) (September 13, 2026)
 >
 > Scope: Phase 1 is the active development target. Phases 2 and 3 are documented
 > as future vision to inform architectural decisions but are not in scope for the
