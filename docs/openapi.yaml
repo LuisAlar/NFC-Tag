@@ -1,0 +1,421 @@
+openapi: 3.1.0
+info:
+  title: NFC Art Journal API
+  version: 1.0.0
+  description: Backend API for resolving NFC taps, onboarding thrifted artwork, managing private journal entries, and serving public exhibition views.
+
+servers:
+  - url: https://api.yourstudio.com
+    description: Production API server
+  - url: http://localhost:3000
+    description: Local development server
+
+paths:
+  /api/tags/{tag_id}:
+    get:
+      summary: Resolving tag taps
+      description: Reads a tag ID, checks device authorization token, and routes to onboarding, owner studio canvas, or guest exhibition view.
+      parameters:
+        - name: tag_id
+          in: path
+          required: true
+          description: Unique NanoID string encoded on the physical NFC chip
+          schema:
+            type: string
+            example: xK9_2pL9q0
+      security:
+        - BearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: Successfully resolved tag state
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TagUnclaimedResponse'
+                  - $ref: '#/components/schemas/TagOwnerResponse'
+                  - $ref: '#/components/schemas/TagGuestResponse'
+        '404':
+          description: Tag not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/items/onboard:
+    post:
+      summary: Onboarding artwork on first tap
+      description: Receives artwork photo and tag ID, runs image recognition, fetches Wikipedia context, generates introspective prompts, mints device owner secret, and stores item and entry records.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - tag_id
+                - image
+              properties:
+                tag_id:
+                  type: string
+                  description: The unclaimed tag handle
+                  example: xK9_2pL9q0
+                image:
+                  type: string
+                  format: binary
+                  description: Captured photograph of the artwork
+                title_override:
+                  type: string
+                  description: Optional manual override for artwork title
+                artist_override:
+                  type: string
+                  description: Optional manual override for artist name
+      responses:
+        '201':
+          description: Successfully onboarded item and initialized owner session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardItemResponse'
+        '400':
+          description: Invalid payload or tag already claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/items/{item_id}:
+    get:
+      summary: Fetching item details
+      description: Returns public metadata, reference image, and Wikipedia context for an art item.
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/items/{item_id}/entry:
+    get:
+      summary: Fetching private journal entry
+      description: Returns the private TipTap block document and prompts. Requires owner bearer token.
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Private entry retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+        '401':
+          description: Unauthorized or invalid owner token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/entries/{entry_id}:
+    patch:
+      summary: Auto-saving journal entry
+      description: Debounced endpoint for syncing updated TipTap block trees and prompts. Requires owner bearer token.
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntryRequest'
+      responses:
+        '200':
+          description: Entry saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateEntryResponse'
+        '401':
+          description: Unauthorized or token mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: High-entropy raw owner secret stored on device localStorage
+
+  schemas:
+    ItemContext:
+      type: object
+      description: Archival context retrieved from Wikipedia and historical sources
+      required:
+        - summary
+      properties:
+        summary:
+          type: string
+          description: Extract summary of the painting
+          example: The Gleaners is an oil painting by Jean-Francois Millet completed in 1857.
+        source_url:
+          type: string
+          format: uri
+          description: Canonical Wikipedia source URL
+          example: https://en.wikipedia.org/wiki/The_Gleaners
+        page_id:
+          type: integer
+          description: Wikipedia page ID
+          example: 182745
+        extract:
+          type: string
+          description: Detailed extract or biographical context
+        year:
+          type: string
+          description: Year of creation if known
+          example: '1857'
+
+    Item:
+      type: object
+      required:
+        - id
+        - tenant_id
+        - title
+        - image_url
+        - context
+      properties:
+        id:
+          type: string
+          example: item_98a72b1
+        tenant_id:
+          type: string
+          example: tenant_01
+        title:
+          type: string
+          example: The Gleaners
+        artist:
+          type: string
+          nullable: true
+          example: Jean-Francois Millet
+        year:
+          type: string
+          nullable: true
+          example: '1857'
+        image_url:
+          type: string
+          example: /tenants/tenant_01/items/item_98a72b1/original.jpg
+        context:
+          $ref: '#/components/schemas/ItemContext'
+        raw_recognition_data:
+          type: object
+          description: Raw Google Cloud Vision WEB_DETECTION payload stored for audits
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Entry:
+      type: object
+      required:
+        - id
+        - item_id
+        - tenant_id
+        - prompts
+        - content
+      properties:
+        id:
+          type: string
+          example: entry_41f80e
+        item_id:
+          type: string
+          example: item_98a72b1
+        tenant_id:
+          type: string
+          example: tenant_01
+        prompts:
+          type: array
+          items:
+            type: string
+          example:
+            - What about the muted rural landscape caught your eye in the thrift store?
+            - Does the quiet dignity of the figures resonate with your own daily routines?
+        content:
+          type: object
+          description: TipTap / ProseMirror JSON block document
+          example:
+            type: doc
+            content:
+              - type: paragraph
+                content:
+                  - type: text
+                    text: Found this framed piece tucked away in the back corner...
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TagUnclaimedResponse:
+      type: object
+      required:
+        - tag_id
+        - tenant_id
+        - status
+        - action
+      properties:
+        tag_id:
+          type: string
+          example: xK9_2pL9q0
+        tenant_id:
+          type: string
+          example: tenant_01
+        status:
+          type: string
+          enum: [unclaimed]
+        action:
+          type: string
+          enum: [onboard]
+
+    TagOwnerResponse:
+      type: object
+      required:
+        - tag_id
+        - tenant_id
+        - role
+        - item
+        - entry
+        - can_edit
+      properties:
+        tag_id:
+          type: string
+          example: xK9_2pL9q0
+        tenant_id:
+          type: string
+          example: tenant_01
+        role:
+          type: string
+          enum: [owner]
+        item:
+          $ref: '#/components/schemas/Item'
+        entry:
+          $ref: '#/components/schemas/Entry'
+        can_edit:
+          type: boolean
+          example: true
+
+    TagGuestResponse:
+      type: object
+      required:
+        - tag_id
+        - tenant_id
+        - role
+        - item
+        - can_edit
+      properties:
+        tag_id:
+          type: string
+          example: xK9_2pL9q0
+        tenant_id:
+          type: string
+          example: tenant_01
+        role:
+          type: string
+          enum: [guest]
+        item:
+          $ref: '#/components/schemas/Item'
+        can_edit:
+          type: boolean
+          example: false
+
+    OnboardItemResponse:
+      type: object
+      required:
+        - tag_id
+        - raw_owner_secret
+        - item
+        - entry
+      properties:
+        tag_id:
+          type: string
+          example: xK9_2pL9q0
+        raw_owner_secret:
+          type: string
+          description: 256-bit secret token for the owner device to persist in localStorage
+          example: 9f83c1e2b3a4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0
+        item:
+          $ref: '#/components/schemas/Item'
+        entry:
+          $ref: '#/components/schemas/Entry'
+
+    UpdateEntryRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: object
+          description: Updated TipTap / ProseMirror JSON document tree
+        prompts:
+          type: array
+          items:
+            type: string
+          description: Remaining or updated prompt blocks
+
+    UpdateEntryResponse:
+      type: object
+      required:
+        - entry_id
+        - updated_at
+        - status
+      properties:
+        entry_id:
+          type: string
+          example: entry_41f80e
+        updated_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [saved]
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: Tag not found
+        code:
+          type: string
+          example: TAG_NOT_FOUND

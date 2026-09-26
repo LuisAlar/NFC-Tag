@@ -1,0 +1,10 @@
+flowchart TD
+    A[Tenant container] --> B[Item capsule]
+    B --> C[Tag record with tag ID and owner hash]
+    B --> D[Item metadata: title, artist, year]
+    B --> E[Archival snapshot: Wikipedia JSON and Vision log]
+    B --> F[Entry record: TipTap block document]
+    B --> G[Media asset: stored artwork photograph]
+    B --> H{Trigger export or backup}
+    H -->|Assemble bundle| I[Serialize standalone item JSON and media]
+    I --> J[Restore in any environment without external APIs]

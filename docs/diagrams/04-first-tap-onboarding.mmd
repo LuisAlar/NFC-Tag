@@ -1,0 +1,24 @@
+flowchart TD
+    A[Open camera capture prompt] --> B(User snaps photo of artwork)
+    B --> C[Upload image to backend storage]
+    C --> D(Call Google Cloud Vision API)
+    D --> E{Did Vision API recognize artwork?}
+    E -->|No| F{Pop-up dialog selection}
+    F -->|Retake| A
+    F -->|Continue| G[Enter title and artist manually]
+    E -->|Yes| H[Extract artwork title and artist]
+    H --> I(Query Wikipedia REST API)
+    G --> I
+    I --> J{Was Wikipedia article found?}
+    J -->|No| K[Notice: No Wikipedia summary found]
+    K --> L[Generate generic reflection questions]
+    J -->|Yes| M[Parse historical summary and details]
+    M --> N[Generate fact-grounded writing prompts via LLM]
+    N --> O[Writing prompts ready]
+    L --> O
+    O --> P(Mint random owner secret and hash)
+    P --> Q[Create item and entry records in database]
+    Q --> R[Lock tag status to active with item ID and owner hash]
+    R --> S[Return owner secret and hydrated payload to device]
+    S --> T[Store owner secret in local storage]
+    T --> U[Mount editable journaling canvas]

@@ -1,0 +1,10 @@
+flowchart TD
+    A[Physical NFC tag attached] --> B(User taps tag with phone)
+    B --> C(Browser opens tap URL)
+    C --> D{Is tag claimed?}
+    D -->|No| E[Flow A: First tap onboarding]
+    D -->|Yes| F{Device token matches owner?}
+    F -->|Yes| G[Flow B1: Owner studio canvas]
+    F -->|No| H[Flow B2: Guest exhibition view]
+    E --> I[Mint owner secret and link artwork]
+    I --> G

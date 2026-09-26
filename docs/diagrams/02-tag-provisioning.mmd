@@ -1,0 +1,6 @@
+flowchart TD
+    A[Start tag provisioning] --> B(Generate collision-free tag ID)
+    B --> C[Create unclaimed tag record in database]
+    C --> D(Build tap redirect URL)
+    D --> E[Write URL to physical NFC chip via NDEF]
+    E --> F[Affix adhesive tag behind artwork frame]

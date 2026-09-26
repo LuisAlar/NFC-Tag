@@ -1,0 +1,11 @@
+flowchart TD
+    A[Owner opens tap URL with stored secret] --> B(Validate secret against owner token hash)
+    B --> C[Fetch artwork facts and private journal blocks]
+    C --> D(Mount TipTap block editor in editable mode)
+    D --> E[Owner writes reflections or edits prompts]
+    E --> F(Debounce timer: 1000ms idle)
+    F --> G[Send update request with bearer token]
+    G --> H{Validate owner token hash}
+    H -->|Valid| I[Update journal entry in database]
+    I --> J[Display saved status in UI]
+    H -->|Invalid| K[Show sync error and prompt verification]

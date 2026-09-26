@@ -1,0 +1,9 @@
+flowchart TD
+    A[Guest taps tag with smartphone] --> B(Browser checks local storage: no secret found)
+    B --> C[Send tag request without owner token]
+    C --> D(Identify request as guest role)
+    D --> E[Query art title, artist, year, and Wikipedia facts]
+    E --> F[Explicitly exclude entries table]
+    F --> G(Return public exhibition payload)
+    G --> H[Render museum-style exhibition card in browser]
+    H --> I[Visitor views facts while private notes stay hidden]

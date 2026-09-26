@@ -1,0 +1,13 @@
+flowchart TD
+    A[Phone reads NFC tag] --> B(Browser opens tap URL)
+    B --> C[Read local storage for device secret]
+    C --> D(Send hydration request with bearer token)
+    D --> E{Does tag exist in database?}
+    E -->|No| F[Return 404 tag not found]
+    E -->|Yes| G{Is tag claimed by art item?}
+    G -->|No| H[Render onboarding capture screen]
+    G -->|Yes| I{Token hash matches owner hash?}
+    I -->|Yes| J[Return full payload with private journal blocks]
+    J --> K[Mount editable owner studio canvas]
+    I -->|No| L[Return public payload with archival facts only]
+    L --> M[Mount read-only guest exhibition view]
