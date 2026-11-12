@@ -16,6 +16,7 @@ import { ApiError } from './errors.js';
 import type { ItemKind } from './models/types.js';
 import { adminRoutes } from './routes/admin.js';
 import { entryRoutes } from './routes/entries.js';
+import { giftRoutes } from './routes/gifts.js';
 import { itemRoutes } from './routes/items.js';
 import { tagRoutes } from './routes/tags.js';
 import { diskMediaStore, noMediaStore, type MediaStore } from './services/mediaStore.js';
@@ -71,7 +72,7 @@ export async function buildApp(
 
   await app.register(cors, {
     origin: config.corsOrigins,
-    methods: ['GET', 'POST', 'PATCH'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['authorization', 'content-type', 'x-fake-scenario'],
     // Lets browsers skip the preflight OPTIONS call for a day: fewer invocations.
     maxAge: 86_400,
@@ -113,6 +114,7 @@ export async function buildApp(
     await tagRoutes(scope, deps);
     await itemRoutes(scope, deps);
     await entryRoutes(scope, deps);
+    await giftRoutes(scope, deps);
     await adminRoutes(scope, deps);
   });
 

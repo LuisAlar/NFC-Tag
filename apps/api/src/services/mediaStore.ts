@@ -35,6 +35,10 @@ export const isSupportedImage = (mime: string) => mime in EXT_BY_MIME;
 export const originalKey = (tenantId: string, itemId: string, mime: string) =>
   `tenants/${tenantId}/items/${itemId}/original.${EXT_BY_MIME[mime] ?? 'bin'}`;
 
+/** One gift photo. The id is in the key so photos never overwrite each other. */
+export const giftPhotoKey = (tenantId: string, itemId: string, photoId: string, mime: string) =>
+  `tenants/${tenantId}/items/${itemId}/photos/${photoId}.${EXT_BY_MIME[mime] ?? 'bin'}`;
+
 export type MediaDriver = 'disk' | 'none';
 
 export interface MediaStore {

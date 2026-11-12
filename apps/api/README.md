@@ -15,6 +15,25 @@ npm test          # all three tap flows end to end on in-memory Postgres, plus t
 
 To run against a real Postgres instead, set `DATABASE_URL` and run `npm run db:migrate` first.
 
+## GiftBox
+
+A gift tag opens a page of photos, each with a caption beside it and a note and date on its back. Everyone who taps reads it; only editor devices can change it. Routes are in `src/routes/gifts.ts`, tests in `src/routes/gifts.test.ts`.
+
+1. **Provision a gift tag.** The tag's kind decides which setup screen the first tap shows:
+
+   ```bash
+   curl -X POST localhost:3000/api/admin/tags -H "x-admin-token: dev-admin" -H "content-type: application/json" -d '{"kind":"gift","count":1}'
+   ```
+
+2. **First tap sets it up.** `POST /api/gifts { tag_id, title }` claims the tag and returns that device's secret once.
+3. **Edit.** `PATCH /api/gifts/:tag_id` (title), `POST /api/gifts/:tag_id/photos` (multipart `image`, optional `caption`, `note`, `taken_at`), `PATCH` and `DELETE /api/gifts/:tag_id/photos/:photo_id`. All need `Authorization: Bearer <secret>`.
+4. **Add a second phone.** `POST /api/gifts/:tag_id/invites` returns a link (`/t/<tag_id>#invite=<code>`) that works once and expires in 7 days. Opening it calls `POST /api/gifts/:tag_id/editors`, which gives that phone its own secret.
+5. **Recovery.** If every editor phone loses its secret, `POST /api/admin/tags/:tag_id/invites` (admin token) mints a new invite.
+
+`GET /api/tags/:tag_id` returns `gift: { title, photos }` for a gift, to owners and guests alike.
+
+Photos need image storage: with `MEDIA_DRIVER=none` (the Vercel default) adding a photo returns `503 MEDIA_STORAGE_OFF`.
+
 ## Deploy to Vercel
 
 The API is its own Vercel project. The portfolio stays untouched until you add routing (see "Stitching into the portfolio").

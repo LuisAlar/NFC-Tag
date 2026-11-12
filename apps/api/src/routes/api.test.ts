@@ -80,7 +80,7 @@ describe('tag resolution', () => {
   test('unclaimed tag routes to onboarding', async () => {
     const res = await app.inject('/api/tags/tag_a');
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.json(), { tag_id: 'tag_a', tenant_id: 'tenant_01', status: 'unclaimed', action: 'onboard' });
+    assert.deepEqual(res.json(), { tag_id: 'tag_a', tenant_id: 'tenant_01', kind: 'artwork', status: 'unclaimed', action: 'onboard' });
   });
 });
 

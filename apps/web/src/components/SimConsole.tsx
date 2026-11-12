@@ -94,6 +94,21 @@ export function SimConsole() {
             Tap Tag as Guest (/t/tag_art_01)
           </button>
         </div>
+
+        <div className="sim-card">
+          <div className="card-badge badge-owner">GiftBox</div>
+          <h3>Simulate GiftBox Tag</h3>
+          <p>
+            Opens the photo gift from the real API (start it with <code>npm run dev</code> in <code>apps/api</code>).
+            The first tap sets the gift up and makes this browser an editor.
+          </p>
+          <button onClick={() => navigate('/t/tag_gift_01')} className="action-button primary">
+            Tap Gift Tag (/t/tag_gift_01)
+          </button>
+          <button onClick={() => navigate('/t/tag_gift_01?guest=1')} className="action-button secondary">
+            Tap as Guest (view only)
+          </button>
+        </div>
       </div>
 
       <div className="custom-tap-panel">

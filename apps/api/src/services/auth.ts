@@ -29,6 +29,28 @@ export function isOwner(ownerTokenHash: string | null | undefined, rawToken: str
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * True when the token belongs to the device that claimed the tag or, for a
+ * gift, to a device added later through an invite. Extra editors are
+ * gift-only for now: the artwork entry routes still check the claiming device.
+ */
+export async function canEditTag(
+  repo: { isTagEditor(tagId: string, tokenHash: string): Promise<boolean> },
+  tag: { id: string; kind: string; owner_token_hash: string | null },
+  rawToken: string | null,
+): Promise<boolean> {
+  if (!rawToken) return false;
+  if (isOwner(tag.owner_token_hash, rawToken)) return true;
+  // Looked up by hash: the secret is 256 random bits, so equality on its hash leaks nothing useful.
+  return tag.kind === 'gift' && repo.isTagEditor(tag.id, sha256Hex(rawToken));
+}
+
+/** One-time invite code: 128 random bits, URL-safe. Only its SHA-256 is stored. */
+export function mintInviteCode(): { raw: string; hash: string } {
+  const raw = randomBytes(16).toString('base64url');
+  return { raw, hash: sha256Hex(raw) };
+}
+
 // -- IDs ----------------------------------------------------------------------
 
 const TAG_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_-';

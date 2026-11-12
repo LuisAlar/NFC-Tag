@@ -44,6 +44,7 @@ export async function onboardItem(deps: OnboardDeps, input: OnboardItemInput): P
   const tag = await deps.repo.getTag(input.tagId);
   if (!tag) throw notFound('TAG_NOT_FOUND', 'Tag not found');
   if (tag.status !== 'unclaimed') throw conflict('TAG_ALREADY_CLAIMED', 'Tag is already claimed');
+  if (tag.kind !== input.kind) throw conflict('WRONG_KIND', `This tag is set up for "${tag.kind}", not "${input.kind}"`);
 
   const onboarder = deps.onboarders[input.kind];
   if (!onboarder) throw new ApiError(400, 'UNSUPPORTED_KIND', `No onboarding flow for kind "${input.kind}"`);

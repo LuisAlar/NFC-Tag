@@ -29,8 +29,11 @@ const repo = new Repo(sql);
 await repo.ensureTenant({ id: config.defaultTenantId, name: 'Default studio', slug: config.defaultTenantId });
 
 for (const id of SEED_TAGS) {
-  const created = await repo.createTag(id, config.defaultTenantId);
+  const kind = id.startsWith('tag_gift') ? 'gift' : 'artwork';
+  const created = await repo.createTag(id, config.defaultTenantId, kind);
+  // A database seeded before tags had a kind: fix it up while the tag is still unclaimed.
+  if (!created) await repo.setUnclaimedTagKind(id, kind);
   const tag = (await repo.getTag(id))!;
-  console.log(`${created ? 'created ' : 'exists  '} ${id.padEnd(16)} ${tag.status.padEnd(10)} ${config.publicWebUrl}/t/${id}`);
+  console.log(`${created ? 'created ' : 'exists  '} ${id.padEnd(16)} ${tag.kind.padEnd(8)} ${tag.status.padEnd(10)} ${config.publicWebUrl}/t/${id}`);
 }
 await repo.close();

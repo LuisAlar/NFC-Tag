@@ -10,7 +10,7 @@ export type TagStatus = 'unclaimed' | 'registered' | 'active' | 'archived';
  * every kind; only onboarding and the UI differ. Add a kind by registering an
  * onboarder in services/onboarding/index.ts.
  */
-export const ITEM_KINDS = ['artwork'] as const;
+export const ITEM_KINDS = ['artwork', 'gift'] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 export interface Fact {
@@ -55,6 +55,8 @@ export interface Tag {
   id: string;
   tenant_id: string;
   item_id: string | null;
+  /** The experience this tag is meant for, set at provisioning. */
+  kind: ItemKind;
   status: TagStatus;
   owner_token_hash: string | null;
   claimed_at: string | null;
@@ -83,6 +85,28 @@ export interface Entry {
   prompts: string[];
   content: TipTapDocument;
   created_at: string;
+  updated_at: string;
+}
+
+/** One photo in a gift. Public: every tap can read it, only editors write. */
+export interface GiftPhoto {
+  id: string;
+  image_url: string;
+  /** Text shown beside the photo. */
+  caption: string;
+  /** Text shown on the back of the photo. */
+  note: string;
+  /** YYYY-MM-DD, or null when unknown. */
+  taken_at: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The public content of a gift item. */
+export interface Gift {
+  title: string;
+  photos: GiftPhoto[];
   updated_at: string;
 }
 
