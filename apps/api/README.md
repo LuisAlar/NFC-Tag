@@ -32,7 +32,7 @@ A gift tag opens a page of photos, each with a caption beside it and a note and 
 
 `GET /api/tags/:tag_id` returns `gift: { title, photos }` for a gift, to owners and guests alike.
 
-Photos need image storage: with `MEDIA_DRIVER=none` (the Vercel default) adding a photo returns `503 MEDIA_STORAGE_OFF`.
+Photos need image storage: on Vercel without a Blob store (`MEDIA_DRIVER=none`), adding a photo returns `503 MEDIA_STORAGE_OFF`.
 
 ## Deploy to Vercel
 
@@ -46,7 +46,7 @@ The API and the web app deploy together as one Vercel project with [Services](ht
 The API receives the full path (`/api/tags/…`), so routes keep their `/api` prefix. The browser calls `/api` on its own domain, the same way the Vite proxy works locally, so CORS is not involved and no service-to-service bindings are needed. The portfolio stays untouched until you add routing (see "Stitching into the portfolio").
 
 1. **Create the project.** Import this repo in Vercel and leave **Root Directory** empty (the repo root), so Vercel reads `vercel.json`.
-2. **Add storage.** In the project, go to Storage → Create → Neon (free). This sets `DATABASE_URL`.
+2. **Add storage.** In the project, go to Storage → Create → Neon (free), which sets `DATABASE_URL`. Then Storage → Create → Blob with **public** access and a read-write token, which sets `BLOB_READ_WRITE_TOKEN`. Keep the default env var prefix on both; the code reads exactly these names.
 3. **Set env vars** (Settings → Environment Variables):
    - `ADMIN_TOKEN`: a long random string. Without it, the provisioning routes are off.
    - Optional: `PUBLIC_WEB_URL` (invite links; defaults to this project's production domain), `CORS_ORIGINS`, `FAKE_SCENARIO`.
@@ -58,22 +58,30 @@ The API receives the full path (`/api/tags/…`), so routes keep their `/api` pr
    ```
 
    Migrations never run on a cold start. Run `db:migrate` again whenever a new file lands in `src/db/migrations/`.
-5. **Deploy**, then check `https://<project>.vercel.app/health`. It returns `{"status":"ok","media":"none"}` without touching the database.
+5. **Deploy**, then check `https://<project>.vercel.app/health`. It returns `{"status":"ok","media":"blob"}` without touching the database (`"none"` means no Blob store is connected; redeploy after connecting one).
 
 ### What changes on Vercel (`VERCEL` is set)
 
 | | Local | Vercel |
 | --- | --- | --- |
 | Database | PGlite in `data/pglite` (auto-migrated) | `DATABASE_URL` required, migrate by hand |
-| Images | Disk, served at `/media/*` | Not stored yet (`image_url: null`), see below |
+| Images | Disk, served at `/media/*` | Vercel Blob, served from the Blob CDN |
 | Run log | Postgres + console + JSONL | Postgres only |
 | Admin token | `dev-admin` | `ADMIN_TOKEN` or off |
 | `x-fake-scenario` header | Allowed | Ignored (set `ALLOW_SCENARIO_HEADER=1` to allow) |
 | Max upload | 4 MB | 4 MB (Vercel rejects request bodies over 4.5 MB) |
 
-### Image storage (not set up yet)
+### Image storage
 
-`src/services/mediaStore.ts` defines the interface. Adding a backend means writing one `put` / `publicUrl` / `remove` implementation and setting `MEDIA_DRIVER`. Images should then be served from the storage CDN, never through this function. The plan is for the browser to resize the photo and upload it straight to storage with a signed URL, then send only the key to `/api/items/onboard`.
+`src/services/mediaStore.ts` has three drivers behind one `put` / `remove` interface. `put` returns the URL to save in the database, because Blob only knows it after the upload.
+
+- `disk`: local dev. Files in `data/media`, served by this API at `/media/*`.
+- `blob`: Vercel Blob, picked automatically on Vercel when `BLOB_READ_WRITE_TOKEN` is set. The storage key (`tenants/{tenant}/items/{item}/photos/{photo}.jpg`) is the Blob pathname, so URLs are stable and cached by the CDN for a year. Images never go through this function on the way out.
+- `none`: Vercel without a Blob store.
+
+Uploads still pass through the function. The web app resizes photos to a 1600px JPEG of a few hundred KB first, well under Vercel's 4.5 MB request limit. Uploading straight from the browser to Blob would only matter for much larger files.
+
+To try Blob from your machine, run `vercel env pull .env.local` here, then start the API with `MEDIA_DRIVER=blob` and `BLOB_READ_WRITE_TOKEN` from that file. Uploads go to the real store, so use a test tag.
 
 ### Stitching into the portfolio
 
@@ -143,7 +151,7 @@ src/
   routes/         tags, items, entries, admin (+ api.test.ts)
   services/
     auth.ts         secrets, hashing, IDs
-    mediaStore.ts   image storage interface (disk / none; R2 or Blob next)
+    mediaStore.ts   image storage (disk / blob / none)
     onboarding/     Flow A service, pipeline, per-kind onboarders
     providers/      fake.ts (Vision, Wikipedia, Wikidata, LLM stand-ins)
     runlog/         step-by-step pipeline logging (+ pgSink.ts)
@@ -161,7 +169,8 @@ src/
 | --- | --- |
 | `DATABASE_URL` | unset = PGlite (required on Vercel) |
 | `PGLITE_DIR` | `data/pglite` |
-| `MEDIA_DRIVER` | `disk` locally, `none` on Vercel |
+| `MEDIA_DRIVER` | `disk` locally; on Vercel `blob` when `BLOB_READ_WRITE_TOKEN` is set, else `none` |
+| `BLOB_READ_WRITE_TOKEN` | Set by connecting a Blob store |
 | `MEDIA_DIR` | `data/media` |
 | `RUNLOG_PATH` | `runs/onboarding.jsonl` (local only) |
 | `ADMIN_TOKEN` | `dev-admin` locally; unset in production = admin routes off |

@@ -52,7 +52,7 @@ export async function onboardItem(deps: OnboardDeps, input: OnboardItemInput): P
   const itemId = newId('item');
   const entryId = newId('entry');
   const imageKey = originalKey(tag.tenant_id, itemId, input.image.mime);
-  await deps.media.put(imageKey, input.image.mime, input.image.bytes);
+  const imageUrl = await deps.media.put(imageKey, input.image.mime, input.image.bytes);
 
   const run = Run.start({
     pipeline: { name: `onboarding.${input.kind}`, version: PIPELINE_VERSION },
@@ -78,7 +78,7 @@ export async function onboardItem(deps: OnboardDeps, input: OnboardItemInput): P
       title: outcome.title,
       artist: outcome.artist,
       year: outcome.year,
-      image_url: deps.media.stores ? deps.media.publicUrl(imageKey) : null,
+      image_url: deps.media.stores ? imageUrl : null,
       context: outcome.context,
       // The full step-by-step record lives in the run log; link to it.
       raw_recognition_data: {

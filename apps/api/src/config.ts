@@ -3,7 +3,7 @@
  * that Vercel sets on every deployment:
  *
  *   local  - PGlite in data/pglite, images on disk, JSONL run log, dev admin token
- *   vercel - DATABASE_URL (Neon) required, no image storage yet, run log in Postgres
+ *   vercel - DATABASE_URL (Neon) required, Vercel Blob when connected, run log in Postgres
  */
 
 import { resolve } from 'node:path';
@@ -58,7 +58,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     host: env.HOST ?? '0.0.0.0',
     databaseUrl: env.DATABASE_URL || null,
     pgliteDir: env.PGLITE_DIR ?? resolve('data/pglite'),
-    mediaDriver: (env.MEDIA_DRIVER as MediaDriver | undefined) ?? (onVercel ? 'none' : 'disk'),
+    // On Vercel, a connected Blob store turns image storage on by itself.
+    mediaDriver: (env.MEDIA_DRIVER as MediaDriver | undefined) ?? (onVercel ? (env.BLOB_READ_WRITE_TOKEN ? 'blob' : 'none') : 'disk'),
     mediaDir: env.MEDIA_DIR ?? resolve('data/media'),
     runlogPath: onVercel ? null : (env.RUNLOG_PATH ?? resolve('runs/onboarding.jsonl')),
     adminToken: env.ADMIN_TOKEN || (isProd ? null : 'dev-admin'),

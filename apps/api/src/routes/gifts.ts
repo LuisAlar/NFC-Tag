@@ -184,14 +184,14 @@ export async function giftRoutes(app: FastifyInstance, { repo, media, config }: 
 
     const id = newId('photo');
     const key = giftPhotoKey(tag.tenant_id, tag.item_id, id, image.mime);
-    await media.put(key, image.mime, image.bytes);
+    const imageUrl = await media.put(key, image.mime, image.bytes);
     try {
       const photo = await repo.addGiftPhoto({
         id,
         itemId: tag.item_id,
         tenantId: tag.tenant_id,
         imageKey: key,
-        imageUrl: media.publicUrl(key),
+        imageUrl,
         caption,
         note,
         takenAt,

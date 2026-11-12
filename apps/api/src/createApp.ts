@@ -19,7 +19,7 @@ import { entryRoutes } from './routes/entries.js';
 import { giftRoutes } from './routes/gifts.js';
 import { itemRoutes } from './routes/items.js';
 import { tagRoutes } from './routes/tags.js';
-import { diskMediaStore, noMediaStore, type MediaStore } from './services/mediaStore.js';
+import { blobMediaStore, diskMediaStore, noMediaStore, type MediaStore } from './services/mediaStore.js';
 import { artworkOnboarder } from './services/onboarding/artwork.js';
 import type { Onboarder } from './services/onboarding/types.js';
 import { fakeProviders, type Scenario } from './services/providers/fake.js';
@@ -48,6 +48,8 @@ function mediaFor(config: Config): MediaStore {
   switch (config.mediaDriver) {
     case 'disk':
       return diskMediaStore(config.mediaDir);
+    case 'blob':
+      return blobMediaStore();
     case 'none':
       return noMediaStore();
     default:
@@ -79,7 +81,7 @@ export async function buildApp(
   });
   await app.register(multipart, { limits: { fileSize: config.maxImageBytes, files: 1, fields: 10 } });
 
-  // Only the disk driver is served by this API. Object storage will serve its own URLs.
+  // Only the disk driver is served by this API. Blob images come from the Blob CDN.
   if (deps.media.driver === 'disk') {
     const { default: fastifyStatic } = await import('@fastify/static');
     const { mkdirSync } = await import('node:fs');
