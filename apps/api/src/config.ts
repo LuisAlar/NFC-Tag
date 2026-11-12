@@ -29,7 +29,7 @@ export interface Config {
   /** Required to call the tag-provisioning endpoints. Null = those routes are off. */
   adminToken: string | null;
   defaultTenantId: string;
-  /** Web app origin; tap URLs written to chips are `${publicWebUrl}/t/{tag_id}`. */
+  /** Web app origin; tap and invite URLs are `${publicWebUrl}/t/{tag_id}`. */
   publicWebUrl: string;
   /** Allowed browser origins for CORS. Not needed when the portfolio proxies /api same-origin. */
   corsOrigins: string[];
@@ -46,6 +46,11 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
   const onVercel = Boolean(env.VERCEL);
   const isProd = onVercel || env.NODE_ENV === 'production';
   const list = (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean);
+  // The web app and API share one Vercel project (root vercel.json), so on
+  // Vercel the page lives on this project's own production domain. Vercel sets
+  // VERCEL_PROJECT_PRODUCTION_URL without a scheme; the portfolio is the fallback.
+  const vercelOrigin = env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : PORTFOLIO_ORIGIN;
+  const webOrigin = onVercel ? vercelOrigin : 'http://localhost:5173';
 
   return {
     onVercel,
@@ -58,8 +63,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     runlogPath: onVercel ? null : (env.RUNLOG_PATH ?? resolve('runs/onboarding.jsonl')),
     adminToken: env.ADMIN_TOKEN || (isProd ? null : 'dev-admin'),
     defaultTenantId: env.DEFAULT_TENANT_ID ?? 'tenant_01',
-    publicWebUrl: env.PUBLIC_WEB_URL ?? (onVercel ? PORTFOLIO_ORIGIN : 'http://localhost:5173'),
-    corsOrigins: list(env.CORS_ORIGINS ?? (onVercel ? PORTFOLIO_ORIGIN : 'http://localhost:5173')),
+    publicWebUrl: env.PUBLIC_WEB_URL ?? webOrigin,
+    corsOrigins: list(env.CORS_ORIGINS ?? webOrigin),
     fakeScenario: env.FAKE_SCENARIO === 'thrift' ? 'thrift' : 'famous',
     allowScenarioHeader: !isProd || env.ALLOW_SCENARIO_HEADER === '1',
     maxImageBytes: Number(env.MAX_IMAGE_BYTES ?? 4 * 1024 * 1024),

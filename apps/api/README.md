@@ -36,14 +36,21 @@ Photos need image storage: with `MEDIA_DRIVER=none` (the Vercel default) adding 
 
 ## Deploy to Vercel
 
-The API is its own Vercel project. The portfolio stays untouched until you add routing (see "Stitching into the portfolio").
+The API and the web app deploy together as one Vercel project with [Services](https://vercel.com/docs/services), configured by `vercel.json` at the repo root:
 
-1. **Create the project.** Import this repo in Vercel and set **Root Directory** to `apps/api`. Leave framework, build and output settings on auto. Vercel detects `src/server.ts` as a Fastify app and serves it as a single function with Fluid compute.
-2. **Add the database.** In the project, go to Storage → Create → Neon (free). This sets `DATABASE_URL` on the project.
+| Service | Root | Public paths |
+| --- | --- | --- |
+| `api` | `apps/api` (entry `src/server.ts`) | `/api/*`, `/health` |
+| `web` | `apps/web` (Vite) | everything else; unknown paths like `/t/<tag_id>` serve `index.html` |
+
+The API receives the full path (`/api/tags/…`), so routes keep their `/api` prefix. The browser calls `/api` on its own domain, the same way the Vite proxy works locally, so CORS is not involved and no service-to-service bindings are needed. The portfolio stays untouched until you add routing (see "Stitching into the portfolio").
+
+1. **Create the project.** Import this repo in Vercel and leave **Root Directory** empty (the repo root), so Vercel reads `vercel.json`.
+2. **Add storage.** In the project, go to Storage → Create → Neon (free). This sets `DATABASE_URL`.
 3. **Set env vars** (Settings → Environment Variables):
    - `ADMIN_TOKEN`: a long random string. Without it, the provisioning routes are off.
-   - Optional: `PUBLIC_WEB_URL` and `CORS_ORIGINS` (both default to `https://luis-alarcon.vercel.app`), `FAKE_SCENARIO`.
-4. **Migrate and seed once, from your machine.** Get the connection string with `vercel env pull .env.local` or copy it from the Neon dashboard, then:
+   - Optional: `PUBLIC_WEB_URL` (invite links; defaults to this project's production domain), `CORS_ORIGINS`, `FAKE_SCENARIO`.
+4. **Migrate and seed once, from your machine.** The seed creates `tenant_01`, which provisioning needs. Get the connection string with `vercel env pull .env.local` or copy it from the Neon dashboard, then:
 
    ```bash
    DATABASE_URL="postgres://..." npm run db:migrate
@@ -70,11 +77,18 @@ The API is its own Vercel project. The portfolio stays untouched until you add r
 
 ### Stitching into the portfolio
 
-Tap URLs are `https://luis-alarcon.vercel.app/t/<tag_id>`. The portfolio project forwards NFC paths to the NFC projects with rewrites in its `vercel.json`, for example:
+Until this is set up, tap URLs are `https://<project>.vercel.app/t/<tag_id>`. To move them to `https://luis-alarcon.vercel.app/t/<tag_id>`, the portfolio forwards the NFC paths to this project with rewrites in its own `vercel.json`, and `PUBLIC_WEB_URL` is set to the portfolio origin. For example:
 
 ```json
-{ "rewrites": [{ "source": "/nfc-api/:path*", "destination": "https://<api-project>.vercel.app/api/:path*" }] }
+{
+  "rewrites": [
+    { "source": "/t/:path*", "destination": "https://<project>.vercel.app/t/:path*" },
+    { "source": "/api/:path*", "destination": "https://<project>.vercel.app/api/:path*" }
+  ]
+}
 ```
+
+The web app's built files (`/assets/*`) also need a path that doesn't clash with the portfolio's, such as a Vite `base`.
 
 Proxied requests are same-origin, so CORS is not involved. Write tag URLs onto chips only after this routing works.
 
@@ -151,7 +165,7 @@ src/
 | `MEDIA_DIR` | `data/media` |
 | `RUNLOG_PATH` | `runs/onboarding.jsonl` (local only) |
 | `ADMIN_TOKEN` | `dev-admin` locally; unset in production = admin routes off |
-| `PUBLIC_WEB_URL` | `http://localhost:5173` / `https://luis-alarcon.vercel.app` |
+| `PUBLIC_WEB_URL` | `http://localhost:5173` / `https://$VERCEL_PROJECT_PRODUCTION_URL` |
 | `CORS_ORIGINS` | same as above (comma-separated) |
 | `FAKE_SCENARIO` | `famous` |
 | `MAX_IMAGE_BYTES` | 4 MB |
