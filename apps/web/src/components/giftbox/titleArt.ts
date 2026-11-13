@@ -15,4 +15,5 @@
  * One artwork covers every gift tag, since there is one gift. If more gifts
  * get their own art later, turn this into a map keyed by tag id.
  */
-export const TITLE_ART: string | null = null;
+import LuisRaina from '../../assets/luis-raina.svg';
+export const TITLE_ART: string | null = LuisRaina;
