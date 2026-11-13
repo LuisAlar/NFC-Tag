@@ -35,8 +35,9 @@ export function GiftSetup({ tagId, onDone }: GiftSetupProps) {
       <form className="giftbox gift-setup" onSubmit={submit}>
         <h1>Set up this gift</h1>
         <p>
-          This tag is new. Give the gift a title, like your two names. This phone will be able to edit it; you can let
-          another phone edit afterwards.
+          This tag is new. Give the gift a title, like your two names. The page shows the names artwork in its place;
+          the title is read aloud by screen readers. This phone will be able to edit it; you can let another phone edit
+          afterwards.
         </p>
         <label htmlFor="gift-title-input">Title</label>
         <input

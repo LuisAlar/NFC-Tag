@@ -152,7 +152,7 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
               value={draft.title}
               onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
               maxLength={120}
-              aria-label="Gift title"
+              aria-label="Gift title (read aloud in place of the names artwork)"
             />
           ) : (
             <GiftBoxTitle title={shown.title} />
