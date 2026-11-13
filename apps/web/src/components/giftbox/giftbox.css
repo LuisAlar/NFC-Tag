@@ -41,21 +41,26 @@ body:has(.giftbox-page) {
     max(32px, calc(env(safe-area-inset-bottom) + 16px)) max(var(--gift-margin), env(safe-area-inset-left));
 }
 
-/* ---- Toolbar and title ---- */
-
-.giftbox-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  min-height: 44px;
-}
+/* ---- Title ---- */
 
 .giftbox-header {
   min-height: 112px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px 0 24px;
+  gap: 16px;
+  padding: 28px 0 24px;
+}
+
+/* In edit mode the artwork stays; its alt text is edited underneath. */
+.gift-title-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  font-size: 13px;
+  color: var(--gift-text-dim);
 }
 
 .gift-title {
@@ -174,11 +179,6 @@ body:has(.giftbox-page) {
 
 .gift-input {
   min-height: 44px;
-}
-
-.gift-title-input {
-  text-align: center;
-  font-size: 20px;
 }
 
 .gift-error,
@@ -367,13 +367,127 @@ body:has(.giftbox-page) {
   resize: none;
 }
 
-/* ---- Edit tools under the list ---- */
+/* ---- Reorder buttons beside each caption (edit mode) ---- */
+
+.photo-row-tools {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.photo-row:nth-child(even) .photo-row-tools {
+  justify-content: flex-end;
+}
+
+.gift-icon-btn {
+  font: inherit;
+  font-size: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(241, 233, 226, 0.35);
+  background: transparent;
+  color: var(--gift-text);
+  cursor: pointer;
+}
+
+.gift-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.gift-progress {
+  margin: 24px 0 0;
+  font-size: 15px;
+  color: var(--gift-text-dim);
+}
+
+/* ---- The + button under the last photo, options sliding out to its right ---- */
+
+.gift-fab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  min-height: 56px;
+}
+
+.gift-fab-toggle {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--gift-accent);
+  color: var(--gift-ink);
+  font: inherit;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gift-fab-toggle span {
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.gift-fab.is-open .gift-fab-toggle span {
+  transform: rotate(45deg);
+}
+
+.gift-fab-toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.gift-fab-options {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transform: translateX(-24px);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s ease;
+}
+
+.gift-fab.is-open .gift-fab-options {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* ---- Edit mode: tools under the list, Cancel / Done pinned to the bottom ---- */
+
+.giftbox-page.is-editing .giftbox {
+  /* Room so the pinned bar never covers the last controls. */
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
 
 .gift-edit-tools {
   margin-top: 32px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.gift-edit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px max(var(--gift-margin), env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(var(--gift-margin), env(safe-area-inset-left));
+  background: rgba(50, 43, 43, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(241, 233, 226, 0.12);
 }
 
 .gift-invite {
@@ -417,6 +531,11 @@ body:has(.giftbox-page) {
 
 /* No spin for people who ask for less motion: the faces cross-fade instead. */
 @media (prefers-reduced-motion: reduce) {
+  .gift-fab-toggle span,
+  .gift-fab-options {
+    transition: none;
+  }
+
   .photo-card-inner,
   .photo-card.is-flipped .photo-card-inner {
     transform: none;

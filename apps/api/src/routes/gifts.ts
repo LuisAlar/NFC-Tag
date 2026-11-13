@@ -7,6 +7,7 @@
  *   POST   /api/gifts                              set up an unclaimed gift tag -> first editor secret
  *   PATCH  /api/gifts/:tag_id                      change the title
  *   POST   /api/gifts/:tag_id/photos               add a photo (multipart: image, caption, note, taken_at)
+ *   PUT    /api/gifts/:tag_id/photos/order         set the photo order (every photo id, first to last)
  *   PATCH  /api/gifts/:tag_id/photos/:photo_id     change caption / note / taken_at
  *   DELETE /api/gifts/:tag_id/photos/:photo_id     remove a photo
  *   POST   /api/gifts/:tag_id/invites              mint a one-time link that lets another device edit
@@ -71,6 +72,16 @@ const patchPhotoSchema = {
       caption: { type: 'string', maxLength: MAX_CAPTION },
       note: { type: 'string', maxLength: MAX_NOTE },
       taken_at: { anyOf: [{ type: 'null' }, { type: 'string', pattern: DATE_PATTERN }] },
+    },
+  },
+};
+
+const orderSchema = {
+  body: {
+    type: 'object',
+    required: ['photo_ids'],
+    properties: {
+      photo_ids: { type: 'array', maxItems: MAX_PHOTOS, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 36 } },
     },
   },
 };
@@ -214,6 +225,21 @@ export async function giftRoutes(app: FastifyInstance, { repo, media, config }: 
     if (!photo) throw notFound('PHOTO_NOT_FOUND', 'Photo not found');
     return photo;
   });
+
+  // The whole new order in one call, so a half-applied reorder can't leave two photos in one slot.
+  app.put<{ Params: { tag_id: string }; Body: { photo_ids: string[] } }>(
+    '/api/gifts/:tag_id/photos/order',
+    { schema: orderSchema },
+    async (req) => {
+      const tag = await editableGift(req);
+      const current = (await repo.listGiftPhotos(tag.item_id)).map((p) => p.id);
+      const wanted = req.body.photo_ids;
+      if (wanted.length !== current.length || !wanted.every((id) => current.includes(id))) {
+        throw conflict('PHOTOS_CHANGED', 'photo_ids must list every photo in this gift exactly once');
+      }
+      return { photos: await repo.reorderGiftPhotos(tag.item_id, wanted) };
+    },
+  );
 
   app.delete<{ Params: { tag_id: string; photo_id: string } }>('/api/gifts/:tag_id/photos/:photo_id', async (req, reply) => {
     const tag = await editableGift(req);

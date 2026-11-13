@@ -334,6 +334,22 @@ export class Repo {
     return rows[0] ? toPhoto(rows[0]) : null;
   }
 
+  /**
+   * Sets the order of a gift's photos: photoIds[0] becomes first. The caller
+   * checks that photoIds is exactly the gift's photos; ids from other gifts
+   * are ignored by the item_id condition anyway.
+   */
+  async reorderGiftPhotos(itemId: string, photoIds: string[]): Promise<GiftPhoto[]> {
+    await this.sql.query(
+      `UPDATE gift_photos AS g
+          SET position = o.ord, updated_at = NOW()
+         FROM unnest($2::varchar[]) WITH ORDINALITY AS o(id, ord)
+        WHERE g.id = o.id AND g.item_id = $1`,
+      [itemId, photoIds],
+    );
+    return this.listGiftPhotos(itemId);
+  }
+
   /** Returns the deleted photo's storage key, or null if it wasn't in this gift. */
   async deleteGiftPhoto(itemId: string, photoId: string): Promise<string | null> {
     const { rows } = await this.sql.query<{ image_key: string }>(

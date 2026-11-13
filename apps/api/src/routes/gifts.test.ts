@@ -212,6 +212,32 @@ describe('gift content', () => {
     assert.equal((await addPhoto('gift_b', secret, {}, 'application/pdf')).statusCode, 400);
   });
 
+  test('editors reorder photos with the full list; partial lists, strangers and other gifts are refused', async () => {
+    const extra = (await addPhoto('gift_b', secret, { caption: 'Reorder me' })).json();
+    const ids = (await app.inject('/api/tags/gift_b')).json().gift.photos.map((p: { id: string }) => p.id);
+    assert.ok(ids.length >= 2);
+    const reversed = [...ids].reverse();
+    const url = '/api/gifts/gift_b/photos/order';
+
+    const res = await app.inject({ method: 'PUT', url, payload: { photo_ids: reversed }, headers: auth(secret) });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json().photos.map((p: { id: string }) => p.id), reversed);
+    const after = (await app.inject('/api/tags/gift_b')).json().gift.photos.map((p: { id: string }) => p.id);
+    assert.deepEqual(after, reversed);
+
+    // A photo added after a reorder still goes last.
+    const last = (await addPhoto('gift_b', secret, { caption: 'Newest' })).json();
+    const withNew = (await app.inject('/api/tags/gift_b')).json().gift.photos.map((p: { id: string }) => p.id);
+    assert.equal(withNew.at(-1), last.id);
+
+    assert.equal((await app.inject({ method: 'PUT', url, payload: { photo_ids: reversed }, headers: auth(secret) })).statusCode, 409);
+    assert.equal((await app.inject({ method: 'PUT', url, payload: { photo_ids: [...withNew, withNew[0]] }, headers: auth(secret) })).statusCode, 400);
+    assert.equal((await app.inject({ method: 'PUT', url, payload: { photo_ids: withNew } })).statusCode, 401);
+    assert.equal((await app.inject({ method: 'PUT', url, payload: { photo_ids: withNew }, headers: auth(otherSecret) })).statusCode, 401);
+
+    for (const p of [extra, last]) await app.inject({ method: 'DELETE', url: `/api/gifts/gift_b/photos/${p.id}`, headers: auth(secret) });
+  });
+
   test('deleting a photo removes the row and the file', async () => {
     const photo = (await addPhoto('gift_b', secret, { caption: 'Temp' })).json();
     const path = join(mediaDir, photo.image_url.replace('/media/', ''));

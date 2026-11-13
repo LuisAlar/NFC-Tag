@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   addGiftPhoto,
   createEditorInvite,
   deleteGiftPhoto,
   prepareImage,
+  readTakenAt,
+  reorderGiftPhotos,
   updateGiftPhoto,
   updateGiftTitle,
   type GiftBox,
@@ -24,49 +26,103 @@ interface GiftBoxViewProps {
 }
 
 type PhotoPatch = Partial<Pick<GiftPhoto, 'caption' | 'note' | 'taken_at'>>;
+type Busy = 'saving' | 'uploading' | 'inviting' | null;
+
+const sameOrder = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) {
   const [saved, setSaved] = useState(gift);
   const [draft, setDraft] = useState(gift);
   const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState<'saving' | 'uploading' | 'inviting' | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [busy, setBusy] = useState<Busy>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const shown = editing ? draft : saved;
   const secret = () => getOwnerSecret(tagId);
   const fail = (err: unknown, fallback: string) => setError(err instanceof Error ? err.message : fallback);
+
+  // Close the + menu on a tap outside it or on Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   const patchPhoto = (id: string, patch: PhotoPatch) =>
     setDraft((d) => ({ ...d, photos: d.photos.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
 
   const removePhoto = (id: string) => setDraft((d) => ({ ...d, photos: d.photos.filter((p) => p.id !== id) }));
 
-  /** Uploads right away (the photo needs an id before it can be captioned), then joins the draft. */
-  const addPhoto = async (file: File | undefined) => {
-    if (!file) return;
+  /** Moves a photo one place up (-1) or down (+1) in the draft. Saved with Done. */
+  const movePhoto = (index: number, step: -1 | 1) =>
+    setDraft((d) => {
+      const to = index + step;
+      if (to < 0 || to >= d.photos.length) return d;
+      const photos = [...d.photos];
+      [photos[index], photos[to]] = [photos[to], photos[index]];
+      return { ...d, photos };
+    });
+
+  /**
+   * Uploads each picked photo in turn, dated from its own metadata. Uploads
+   * happen right away (a photo needs an id before it can be captioned), so
+   * they also join the draft when editing.
+   */
+  const addPhotos = async (files: File[]) => {
+    if (!files.length) return;
     setBusy('uploading');
     setError(null);
-    try {
-      const photo = await addGiftPhoto(tagId, secret(), await prepareImage(file));
-      setSaved((s) => ({ ...s, photos: [...s.photos, photo] }));
-      setDraft((d) => ({ ...d, photos: [...d.photos, photo] }));
-    } catch (err) {
-      fail(err, 'Could not add that photo.');
-    } finally {
-      setBusy(null);
+    let failed = 0;
+    for (const [i, file] of files.entries()) {
+      setProgress(files.length > 1 ? `Adding photo ${i + 1} of ${files.length}…` : 'Adding photo…');
+      try {
+        const takenAt = await readTakenAt(file);
+        const photo = await addGiftPhoto(tagId, secret(), await prepareImage(file), takenAt);
+        setSaved((s) => ({ ...s, photos: [...s.photos, photo] }));
+        setDraft((d) => ({ ...d, photos: [...d.photos, photo] }));
+      } catch (err) {
+        failed += 1;
+        fail(err, 'Could not add that photo.');
+      }
     }
+    if (failed && files.length > 1) setError(`${failed} of ${files.length} photos could not be added.`);
+    setProgress(null);
+    setBusy(null);
+  };
+
+  const pickPhotos = () => {
+    setMenuOpen(false);
+    fileInput.current?.click();
   };
 
   const startEditing = () => {
+    setMenuOpen(false);
     setDraft(saved);
     setError(null);
     setEditing(true);
   };
 
-  /** Sends only what changed: the title, edited photos, and removed photos. */
+  const cancelEditing = () => {
+    setEditing(false);
+    setInviteUrl(null);
+    setError(null);
+  };
+
+  /** Sends only what changed: title, edited and removed photos, then the order. */
   const finishEditing = async () => {
     setBusy('saving');
     setError(null);
@@ -88,6 +144,12 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
         if (Object.keys(patch).length) work.push(updateGiftPhoto(tagId, s, before.id, patch));
       }
       await Promise.all(work);
+
+      // The order call must list exactly the photos left after removals, so it goes last.
+      const order = draft.photos.map((p) => p.id);
+      const savedOrder = saved.photos.map((p) => p.id).filter((id) => order.includes(id));
+      if (!sameOrder(order, savedOrder)) await reorderGiftPhotos(tagId, s, order);
+
       setSaved({ ...draft, title });
       setEditing(false);
       setInviteUrl(null);
@@ -125,49 +187,32 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
   };
 
   return (
-    <div className="giftbox-page">
+    <div className={`giftbox-page${editing ? ' is-editing' : ''}`}>
       <div className="giftbox">
-        {canEdit && (
-          <div className="giftbox-toolbar">
-            {editing && (
-              <button type="button" className="gift-btn ghost" onClick={() => setEditing(false)} disabled={busy !== null}>
-                Cancel
-              </button>
-            )}
-            <button
-              type="button"
-              className="gift-btn"
-              onClick={editing ? finishEditing : startEditing}
-              disabled={busy !== null || (editing && !draft.title.trim())}
-            >
-              {editing ? (busy === 'saving' ? 'Saving…' : 'Done') : 'Edit'}
-            </button>
-          </div>
-        )}
-
         <header className="giftbox-header">
-          {editing ? (
-            <input
-              className="gift-input gift-title-input"
-              value={draft.title}
-              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-              maxLength={120}
-              aria-label="Gift title (read aloud in place of the names artwork)"
-            />
-          ) : (
-            <GiftBoxTitle title={shown.title} />
+          <GiftBoxTitle title={editing ? draft.title : saved.title} />
+          {editing && (
+            <label className="gift-title-field">
+              <span>Title text, read aloud in place of the artwork</span>
+              <input
+                className="gift-input"
+                value={draft.title}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                maxLength={120}
+              />
+            </label>
           )}
         </header>
 
         {notice && <p className="gift-notice" role="status">{notice}</p>}
         {error && <p className="gift-error" role="alert">{error}</p>}
 
-        {shown.photos.length === 0 && !editing && (
-          <p className="gift-empty">{canEdit ? 'No photos yet. Tap Edit to add the first one.' : 'No photos yet.'}</p>
+        {shown.photos.length === 0 && (
+          <p className="gift-empty">{canEdit ? 'No photos yet. Tap + to add the first one.' : 'No photos yet.'}</p>
         )}
 
         <ol className="photo-list">
-          {shown.photos.map((photo) => (
+          {shown.photos.map((photo, index) => (
             <li key={photo.id} className="photo-row">
               <PhotoCard photo={photo} editing={editing} onChange={(patch) => patchPhoto(photo.id, patch)} />
               <div className="photo-caption">
@@ -180,6 +225,26 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
                       maxLength={500}
                       aria-label="Caption"
                     />
+                    <div className="photo-row-tools">
+                      <button
+                        type="button"
+                        className="gift-icon-btn"
+                        onClick={() => movePhoto(index, -1)}
+                        disabled={index === 0}
+                        aria-label="Move photo up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="gift-icon-btn"
+                        onClick={() => movePhoto(index, 1)}
+                        disabled={index === shown.photos.length - 1}
+                        aria-label="Move photo down"
+                      >
+                        ↓
+                      </button>
+                    </div>
                     <button type="button" className="gift-link" onClick={() => removePhoto(photo.id)}>
                       Remove
                     </button>
@@ -192,22 +257,51 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
           ))}
         </ol>
 
+        {canEdit && (
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              void addPhotos(Array.from(e.target.files ?? []));
+              e.target.value = '';
+            }}
+          />
+        )}
+
+        {progress && <p className="gift-progress" role="status">{progress}</p>}
+
+        {canEdit && !editing && (
+          <div className={`gift-fab${menuOpen ? ' is-open' : ''}`} ref={menuRef}>
+            <button
+              type="button"
+              className="gift-fab-toggle"
+              onClick={() => setMenuOpen((o) => !o)}
+              disabled={busy !== null}
+              aria-expanded={menuOpen}
+              aria-controls="gift-fab-options"
+              aria-label={menuOpen ? 'Close menu' : 'Add photos or edit'}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+            <div className="gift-fab-options" id="gift-fab-options" inert={!menuOpen}>
+              <button type="button" className="gift-btn" onClick={pickPhotos}>
+                Add photos
+              </button>
+              <button type="button" className="gift-btn ghost" onClick={startEditing}>
+                Edit
+              </button>
+            </div>
+          </div>
+        )}
+
         {editing && (
           <div className="gift-edit-tools">
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                void addPhoto(e.target.files?.[0]);
-                e.target.value = '';
-              }}
-            />
-            <button type="button" className="gift-btn outline wide" onClick={() => fileInput.current?.click()} disabled={busy !== null}>
-              {busy === 'uploading' ? 'Adding photo…' : '+ Add photo'}
+            <button type="button" className="gift-btn outline wide" onClick={pickPhotos} disabled={busy !== null}>
+              + Add photos
             </button>
-
             <button type="button" className="gift-btn ghost wide" onClick={invite} disabled={busy !== null}>
               {busy === 'inviting' ? 'Creating link…' : 'Let another phone edit'}
             </button>
@@ -223,6 +317,17 @@ export function GiftBoxView({ tagId, gift, canEdit, notice }: GiftBoxViewProps) 
           </div>
         )}
       </div>
+
+      {editing && (
+        <div className="gift-edit-bar">
+          <button type="button" className="gift-btn ghost" onClick={cancelEditing} disabled={busy !== null}>
+            Cancel
+          </button>
+          <button type="button" className="gift-btn" onClick={finishEditing} disabled={busy !== null || !draft.title.trim()}>
+            {busy === 'saving' ? 'Saving…' : 'Done'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

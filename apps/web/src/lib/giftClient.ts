@@ -82,10 +82,46 @@ export function updateGiftTitle(tagId: string, secret: string | null, title: str
   return api<{ title: string; updated_at: string }>(`/api/gifts/${enc(tagId)}`, { method: 'PATCH', body: JSON.stringify({ title }) }, secret);
 }
 
-export function addGiftPhoto(tagId: string, secret: string | null, image: Blob) {
+export function addGiftPhoto(tagId: string, secret: string | null, image: Blob, takenAt: string | null = null) {
   const form = new FormData();
   form.append('image', image, 'photo.jpg');
+  if (takenAt) form.append('taken_at', takenAt);
   return api<GiftPhoto>(`/api/gifts/${enc(tagId)}/photos`, { method: 'POST', body: form }, secret);
+}
+
+/** Saves a new photo order. photoIds must list every photo in the gift, first to last. */
+export function reorderGiftPhotos(tagId: string, secret: string | null, photoIds: string[]) {
+  return api<{ photos: GiftPhoto[] }>(
+    `/api/gifts/${enc(tagId)}/photos/order`,
+    { method: 'PUT', body: JSON.stringify({ photo_ids: photoIds }) },
+    secret,
+  );
+}
+
+/**
+ * The day a photo was taken, YYYY-MM-DD, from its EXIF data, or null when
+ * the file has none (screenshots, edited or messaged photos). Read from the
+ * original file: prepareImage re-encodes through a canvas, which drops EXIF.
+ *
+ * EXIF dates carry no timezone; they are the camera's local wall-clock time,
+ * which is the date to show, so local getters are used, not UTC ones.
+ * exifr loads on first use, so viewers who never upload don't download it.
+ */
+export async function readTakenAt(file: File): Promise<string | null> {
+  try {
+    const { default: exifr } = await import('exifr');
+    const tags = (await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate', 'DateTimeDigitized'] })) as
+      | Record<string, unknown>
+      | undefined;
+    const date = [tags?.DateTimeOriginal, tags?.CreateDate, tags?.DateTimeDigitized].find(
+      (d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()),
+    );
+    if (!date) return null;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  } catch {
+    return null; // unreadable metadata never blocks the upload
+  }
 }
 
 export function updateGiftPhoto(
