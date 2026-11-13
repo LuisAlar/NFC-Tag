@@ -47,4 +47,12 @@ if (!config.onVercel) {
   process.on('SIGTERM', shutdown);
 }
 
-await app.listen({ port: config.port, host: config.host });
+if (config.onVercel) {
+  // Vercel replaces listen() and hands requests to the app itself; it may
+  // never report "listening". Awaiting it would keep this module from ever
+  // finishing loading, and every request would hang. Vercel's own Fastify
+  // example calls listen() without await, so match that here.
+  app.listen({ port: config.port, host: config.host }).catch((err) => app.log.error(err));
+} else {
+  await app.listen({ port: config.port, host: config.host });
+}
